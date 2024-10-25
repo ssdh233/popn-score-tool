@@ -12,7 +12,7 @@
 	// 
 	const WAIT_TIME_IN_MILLISECONDS = 100;
 
-	const POPN_RESULTS_URL = 'https://p.eagate.573.jp/game/popn/unilab/playdata/mu_lv.html';
+	const POPN_RESULTS_URL = 'https://p.eagate.573.jp/game/popn/jamfizz/playdata/mu_lv.html';
 
 	// ウェブサイトを確認
 	const validateWebsite = () => {
