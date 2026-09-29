@@ -403,3 +403,116 @@ button {
 .filter-level, .filter-score {
 	width: 80px;
 }
+/**
+ * アプリケーション > レベル別グラフ
+ */
+.level-charts {
+	margin-top: 24px;
+}
+
+@media (min-width: 768px) {
+	.level-charts {
+		display: flex;
+		align-items: flex-start;
+	}
+
+	.level-chart {
+		flex: 1;
+		min-width: 0;
+	}
+}
+
+@media (max-width: 767px) {
+	.level-chart:not(:first-of-type) {
+		margin-top: 24px;
+	}
+}
+
+.level-chart {
+	margin: 0 12px;
+	font-size: 12px;
+	color: #555;
+}
+
+.level-chart__title {
+	font-size: 16px;
+	font-weight: bold;
+	color: #282828;
+}
+
+.level-chart__legend {
+	margin: 4px 0 8px;
+	padding: 0 !important;
+	list-style: none;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 12px;
+}
+
+.level-chart__swatch {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-right: 4px;
+	border-radius: 2px;
+	vertical-align: -1px;
+}
+
+.level-chart__plot {
+	position: relative;
+}
+
+.level-chart__grid {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 1px;
+	background-color: #ebebeb;
+}
+
+.level-chart__row {
+	position: relative;
+	display: flex;
+	align-items: center;
+	height: 18px;
+}
+
+.level-chart__label {
+	flex: none;
+	box-sizing: border-box;
+	width: var(--label-width);
+	padding-right: 6px;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.level-chart__bar {
+	display: flex;
+	gap: 2px;
+	height: 12px;
+	border-radius: 0 4px 4px 0;
+	overflow: hidden;
+}
+
+.level-chart__segment {
+	min-width: 1px;
+}
+
+.level-chart__total {
+	margin-left: 4px;
+	color: #888;
+	font-variant-numeric: tabular-nums;
+}
+
+.level-chart__axis {
+	position: relative;
+	height: 18px;
+	margin-top: 2px;
+}
+
+.level-chart__tick {
+	position: absolute;
+	transform: translateX(-50%);
+	color: #888;
+	font-variant-numeric: tabular-nums;
+}

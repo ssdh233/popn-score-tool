@@ -313,7 +313,7 @@
 		};
 
 		const updateFilteredResults = (filteredResults, pageNo = 1) => {
-			console.log("平均スコア:" + filteredResults.map(x => x.score).reduce((a, b) => a + b) / filteredResults.length);
+			console.log("平均スコア:" + filteredResults.map(x => x.score).reduce((a, b) => a + b, 0) / filteredResults.length);
 			console.log("99k以上:" + filteredResults.filter(x => x.score >= 99000).length);
 			console.log("95k以下:" + filteredResults.filter(x => x.score <= 95000).length);
 
@@ -325,6 +325,7 @@
 		const filterResults = (results, callback) => {
 			const filteredResults = results.filter(callback);
 			updateFilteredResults(filteredResults);
+			renderLevelCharts(filteredResults);
 		};
 
 		return filterResults;
@@ -551,11 +552,176 @@
 			ranksTableElement.addEventListener('click', event => filterResultsOnEvent(event, results));
 
 			// 
-			filterResultsByMedalsTable(results, medalsTableElement, 0, 0);
+			// メモ: デフォルトで EX 列を選択
+			filterResultsByMedalsTable(results, medalsTableElement, 0, TYPES.indexOf('EX') + 1);
 
 		};
 
 		return renderTotalTables;
+
+	})();
+
+	// レベル別グラフ
+	const renderLevelCharts = (() => {
+
+		const levelChartsElement = document.getElementById('level-charts');
+
+		// メモ: 低レベルは行数が多くなるため、高レベルと混在する場合はまとめる
+		const LOW_LEVEL_MAX = 37;
+		const LOW_LEVEL_LABEL = '~' + LOW_LEVEL_MAX;
+
+		// レイアウト (px)
+		const LABEL_WIDTH = 36;
+		const TOTAL_WIDTH = 36;
+
+		// メモ: 各グループは最後のものが「その他全部」
+		const MEDAL_GROUPS = [
+			{ label: '金', color: '#e0ae00', values: ['meda_a.png'] },
+			{ label: '銀', color: '#a3a3a3', values: ['meda_b.png', 'meda_c.png', 'meda_d.png'] },
+			{ label: '銅', color: '#b0602a', values: ['meda_e.png', 'meda_f.png', 'meda_g.png'] },
+			{ label: '黒・若葉', color: '#3a3a3a', values: [] },
+		];
+
+		const SCORE_GROUPS = [
+			{ label: 'S+', color: '#ff4d94', values: ['rank_s_plus.png'] },
+			{ label: 'S', color: '#ff9f2e', values: ['rank_s.png'] },
+			{ label: 'AAA', color: '#2fa89a', values: ['rank_a3.png'] },
+			{ label: 'AA+以下', color: '#c3ccd6', values: [] },
+		];
+
+		const getGroupIndex = (groups, value) => {
+			const index = groups.findIndex(group => group.values.includes(value));
+			return index !== -1 ? index : groups.length - 1;
+		};
+
+		//
+		const getRowLabels = results => {
+
+			const levels = [...new Set(results.map(r => Number(r.level)))].sort((a, b) => a - b);
+
+			const hasLowLevel = levels.some(level => level <= LOW_LEVEL_MAX);
+			const hasHighLevel = levels.some(level => level > LOW_LEVEL_MAX);
+
+			if ( ! (hasLowLevel && hasHighLevel) ) return levels.map(String);
+
+			return [LOW_LEVEL_LABEL, ...levels.filter(level => level > LOW_LEVEL_MAX).map(String)];
+
+		};
+
+		const getRowLabel = (rowLabels, level) => (
+			rowLabels[0] === LOW_LEVEL_LABEL && Number(level) <= LOW_LEVEL_MAX ? LOW_LEVEL_LABEL : String(Number(level))
+		);
+
+		/**
+		 * rows[行][グループ] = 件数
+		 */
+		const countByLevel = (results, rowLabels, groups, getValue) => {
+
+			const rows = rowLabels.map(() => groups.map(() => 0));
+
+			for (const r of results) {
+				const row = rowLabels.indexOf(getRowLabel(rowLabels, r.level));
+				rows[row][getGroupIndex(groups, getValue(r))]++;
+			}
+
+			return rows;
+
+		};
+
+		// 目盛り (1, 2, 5 × 10^n 刻みで 4 本程度)
+		const getTicks = max => {
+
+			const roughStep = Math.max(1, max / 4);
+			const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+			const step = [1, 2, 5, 10].map(m => m * magnitude).find(s => roughStep <= s);
+
+			const tickMax = Math.ceil(max / step) * step;
+
+			const ticks = [];
+			for (let t = 0; t <= tickMax; t += step) ticks.push(t);
+
+			return ticks;
+
+		};
+
+		// メモ: 棒の描画領域 (ラベルと合計の間) 内の位置
+		const getPlotPosition = ratio => (
+			'calc(' + LABEL_WIDTH + 'px + (100% - ' + (LABEL_WIDTH + TOTAL_WIDTH) + 'px) * ' + ratio + ')'
+		);
+
+		const createLevelChartElement = (title, groups, rowLabels, rows) => {
+
+			const totals = rows.map(row => row.reduce((sum, count) => sum + count, 0));
+			const ticks = getTicks(Math.max(...totals));
+			const tickMax = ticks[ticks.length - 1];
+
+			//
+			const legendHTML = '<ul class="level-chart__legend">' +
+				groups.map(group => (
+					'<li><span class="level-chart__swatch" style="background-color: ' + group.color + ';"></span>' + group.label + '</li>'
+				)).join('') +
+				'</ul>';
+
+			const gridHTML = ticks.map(t => (
+				'<span class="level-chart__grid" style="left: ' + getPlotPosition(t / tickMax) + ';"></span>'
+			)).join('');
+
+			const rowsHTML = rows.map((row, i) => {
+
+				const segmentsHTML = row.map((count, j) => {
+					if ( count === 0 ) return '';
+					const percent = Math.round(100 * count / totals[i]);
+					return '<span class="level-chart__segment" style="flex-grow: ' + count + '; background-color: ' + groups[j].color + ';"' +
+						' title="' + rowLabels[i] + ' ' + groups[j].label + ': ' + count + ' (' + percent + '%)"></span>';
+				}).join('');
+
+				return '<div class="level-chart__row">' +
+					'<span class="level-chart__label">' + rowLabels[i] + '</span>' +
+					'<span class="level-chart__bar" style="width: calc((100% - ' + (LABEL_WIDTH + TOTAL_WIDTH) + 'px) * ' + (totals[i] / tickMax) + ');">' + segmentsHTML + '</span>' +
+					'<span class="level-chart__total">' + totals[i] + '</span>' +
+					'</div>';
+
+			}).join('');
+
+			const axisHTML = '<div class="level-chart__axis">' +
+				ticks.map(t => (
+					'<span class="level-chart__tick" style="left: ' + getPlotPosition(t / tickMax) + ';">' + t + '</span>'
+				)).join('') +
+				'</div>';
+
+			//
+			const chartElement = document.createElement('figure');
+
+			chartElement.classList.add('level-chart');
+			chartElement.style.setProperty('--label-width', LABEL_WIDTH + 'px');
+
+			chartElement.innerHTML = '<figcaption class="level-chart__title">' + title + '</figcaption>' +
+				legendHTML +
+				'<div class="level-chart__plot">' + gridHTML + rowsHTML + '</div>' +
+				axisHTML;
+
+			return chartElement;
+
+		};
+
+		//
+		const renderLevelCharts = results => {
+
+			levelChartsElement.innerHTML = '';
+
+			if ( results.length === 0 ) return;
+
+			const rowLabels = getRowLabels(results);
+
+			const medalRows = countByLevel(results, rowLabels, MEDAL_GROUPS, r => r.medal);
+			const scoreRows = countByLevel(results, rowLabels, SCORE_GROUPS, r => r.rank);
+
+			levelChartsElement.appendChild(createLevelChartElement('メダル', MEDAL_GROUPS, rowLabels, medalRows));
+			levelChartsElement.appendChild(createLevelChartElement('スコア', SCORE_GROUPS, rowLabels, scoreRows));
+
+		};
+
+		return renderLevelCharts;
 
 	})();
 
@@ -595,7 +761,7 @@
 				(levelLow ? Number(r.level) >= Number(levelLow) : true) &&
 				(levelHigh ? Number(r.level) <= Number(levelHigh) : true) &&
 				(scoreLow ? Number(r.score) >= Number(scoreLow) : true) &&
-				(scoreHigh ? Number(r.score) >= Number(scoreHigh) : true)
+				(scoreHigh ? Number(r.score) <= Number(scoreHigh) : true)
 			);
 
 			renderTotalTables(resultsFilteredByLevelAndScore);
@@ -609,10 +775,10 @@
 
 				const playData = await getPlayDataFromFile(file);
 
-				document.getElementById("filter-level-low").addEventListener("keyup", event => filterResultsByLevelAndScore(event, playData.results));
-				document.getElementById("filter-level-high").addEventListener("keyup", event => filterResultsByLevelAndScore(event, playData.results));
-				document.getElementById("filter-score-low").addEventListener("keyup", event => filterResultsByLevelAndScore(event, playData.results));
-				document.getElementById("filter-score-high").addEventListener("keyup", event => filterResultsByLevelAndScore(event, playData.results));
+				document.getElementById("filter-level-low").addEventListener("input", event => filterResultsByLevelAndScore(event, playData.results));
+				document.getElementById("filter-level-high").addEventListener("input", event => filterResultsByLevelAndScore(event, playData.results));
+				document.getElementById("filter-score-low").addEventListener("input", event => filterResultsByLevelAndScore(event, playData.results));
+				document.getElementById("filter-score-high").addEventListener("input", event => filterResultsByLevelAndScore(event, playData.results));
 				renderTotalTables(playData.results);
 
 				showElement(resultOk);
