@@ -23,13 +23,16 @@
 	];
 
 	const RANKS = [
-		'rank_s.png',
-		'rank_a3.png', 'rank_a2.png', 'rank_a1.png',
+		'rank_s_plus.png', 'rank_s.png',
+		'rank_a3.png', 'rank_a2_plus.png', 'rank_a2.png', 'rank_a1_plus.png', 'rank_a1.png',
 		'rank_b.png', 'rank_c.png', 'rank_d.png', 'rank_e.png',
 		// RANK_NONE,
 	];
 
 	const TYPES = ['EASY', 'NORMAL', 'HYPER', 'EX'];
+
+	// メモ: High☆Cheers!! から EASY は LIGHT 表記
+	const TYPE_ALIASES = new Map([['LIGHT', 'EASY']]);
 
 	// 
 	const TYPES_ABBR = new Map(['E', 'N', 'H', 'EX'].map((abbr, i) => [TYPES[i], abbr]));
@@ -44,8 +47,8 @@
 	].map((alt, i) => [MEDALS[i], alt]));
 
 	const RANKS_ALT = new Map([
-		'S',
-		'AAA', 'AA', 'A',
+		'S+', 'S',
+		'AAA', 'AA+', 'AA', 'A+', 'A',
 		'B', 'C', 'D', 'E',
 		// '-',
 	].map((alt, i) => [RANKS[i], alt]));
@@ -96,11 +99,12 @@
 				// リザルト情報
 
 				if ( musicResult.score === SCORE_NONE ) continue;
+				if ( musicResult.medal === MEDAL_NONE ) continue; // 未プレー
 
 				const result = {
 					music,
 					level: musicResult.level,
-					type: musicResult.diff,
+					type: TYPE_ALIASES.get(musicResult.diff) ?? musicResult.diff,
 					medal: musicResult.medal,
 					rank: musicResult.rank, // メモ: プレー済みでも resultByType.rank === RANK_NONE の可能性あり
 					score: Number(musicResult.score),
